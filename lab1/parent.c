@@ -87,13 +87,42 @@ int main(int argc, char **argv) {
 
     char buf[2048];
     ssize_t bytes;
-    while ((bytes = read(input_fd, buf, sizeof(buf))) > 0) {
-        if (rand() % 100 < 80)
-            write(pipe1[1], buf, bytes);
-        else
-            write(pipe2[1], buf, bytes);
+    int pos = 0;
+
+    while ((bytes = read(input_fd, buf + pos, sizeof(buf) - pos - 1)) > 0) {
+        bytes += pos;
+        pos = 0;
+
+        for (ssize_t i = 0; i < bytes; i++) {
+            if (buf[i] == '\n') {
+                int len = i + 1;
+
+                if (rand() % 100 < 80)
+                    write(pipe1[1], buf + pos, len - pos);
+                else
+                    write(pipe2[1], buf + pos, len - pos);
+
+                pos = len;
+            }
+        }
+
+        if (pos < bytes) {
+            int remaining = bytes - pos;
+            for(int i = 0; i < remaining; i++)
+                buf[i] = buf[pos + i];
+            pos = remaining;
+        } else  
+            pos = 0;
     }
 
+    if (pos > 0) {
+    if (rand() % 100 < 80)
+        write(pipe1[1], buf, pos);
+    else
+        write(pipe2[1], buf, pos);
+    }
+
+    close(input_fd);
     close(pipe1[1]);
     close(pipe2[1]);
     wait(NULL);
